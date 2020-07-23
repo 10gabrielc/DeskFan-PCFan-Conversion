@@ -15,6 +15,7 @@ const byte fanPin = 3;
 //Pins for buttons or knobs
 const byte btnLeftPin = 4;
 const byte btnRightPin = 5;
+const byte btnOscillatePin = 6;
 const byte speedKnobPin = A0;
 const int voltLowBnd = 0;
 const int voltUpBnd = 1023;
@@ -34,7 +35,8 @@ CRGB fanLEDs[NUM_LEDS];         //Container for addressing LED strip
 const int stepsPerRevolution = 2038;    //Steps for a 28BYJ-48 stepper motor
 int stepperPosition = 0;                //Relative position of the motor shaft
 int stepperSpeed = 6;                   //Speed at which consecutive steps happen
-bool isOscillating = false;
+bool isOscillating = false;             //Variable to determine if fan should oscillate
+int stepsPerLoop = 5;
 
 Stepper oscillatorMotor(stepsPerRevolution, stepIn1, stepIn2, stepIn3, stepIn4);
 // ^Initialize stepper motor
@@ -45,10 +47,19 @@ int fanSpeed = 75;                     //Fan speed as a percentage (0-255);
 const int fanSpdLowBnd = 50;
 const int fanSpdUpBnd = 255;
 
-//Variables needed for millis() timing
+//Variables needed for millis() timing, values in milliseconds
 double currentTime = 0;                       //Current system run time
 double changeSpeedLast = 0;             //Last time the change speed function ran
 const double changeSpeedDelay = 200;          //Delay to wait between changing speed
+
+double oscillateToggleLast = 0;               //Last time oscillation toggle was checked
+const double oscillateToggleDelay = 100;      //Delay to wait between checking toggle
+double oscillateLast = 0;                     //Last time fan oscillated
+const double oscillateDelay = 10;              //Delay between stepper motor oscillations
+
+//Variables needed for button status/debouncing
+bool btnOscillatePressed = false;
+bool btnOscLast = false;
 
 void setup() 
 {
@@ -90,6 +101,27 @@ void loop()
     UpdateFanSpeed();
     changeSpeedLast = millis();
   }
+
+  if((currentTime - oscillateToggleLast) >= oscillateToggleDelay)
+  {
+    //Check to see if the button to turn on oscillation is pressed
+    btnOscillatePressed = digitalRead(btnOscillatePin);       //Get button status
+
+    //Check for button press, but utilize debounce
+    if(btnOscillatePressed == 0 && btnOscLast == 0)
+    {
+      isOscillating = !isOscillating;
+      //btnOscLast = 1;               //excluding debounce for now
+    }
+
+    oscillateToggleLast = millis();
+  }
+
+  if((currentTime - oscillateLast) >= oscillateDelay)
+  {
+    Oscillate();
+    oscillateLast = millis();
+  }
   
 }
 
@@ -102,6 +134,9 @@ void FirstStartup()
 
   //Get the speed that is set by the potentiometer knob
   UpdateFanSpeed();
+
+  //Set the current stepper motor position to its midpoint of rotation.
+  stepperPosition = stepsPerRevolution / 4;
 }
 
 //Function that reads analog voltage, converts to value from 0-255
@@ -118,6 +153,18 @@ void UpdateFanSpeed()
   fanSpeed = CalculateFanSpeed();   //Update global fan speed variable
   pwmWrite(fanPin, fanSpeed);       //Update fan speed
   Serial.println(fanSpeed);
+}
+
+//Function for oscillating the fan head
+void Oscillate()
+{
+  //Check if fan has reached an oscillatory bound
+  if(stepperPosition <= 0 || stepperPosition >= (stepsPerRevolution/2))
+  {
+    stepsPerLoop = -stepsPerLoop; //Invert the direction of rotation
+  }
+
+  oscillatorMotor.step(stepsPerLoop);
 }
 
 //Function that changes the color of the LEDs (static)
