@@ -45,6 +45,10 @@ int fanSpeed = 75;                     //Fan speed as a percentage (0-255);
 const int fanSpdLowBnd = 30;
 const int fanSpdUpBnd = 255;
 
+//Variables needed for millis() timing
+double currentTime = 0;                       //Current system run time
+double changeSpeedLast = 0;             //Last time the change speed function ran
+const double changeSpeedDelay = 200;          //Delay to wait between changing speed
 
 void setup() 
 {
@@ -77,6 +81,15 @@ void setup()
 
 void loop() 
 {
+  currentTime = millis();     //Update current system time
+
+  //Check for speed changes after delay period
+  if((currentTime - changeSpeedLast) >= changeSpeedDelay)
+  {
+    //Check current speed setting on knob and update fan speed accordingly
+    UpdateFanSpeed();
+    changeSpeedLast = millis();
+  }
   
 }
 
@@ -95,8 +108,8 @@ void FirstStartup()
 int CalculateFanSpeed()
 {
   int voltage = analogRead(speedKnobPin);       //Analog read checks voltage level on A0
-  int fanSpeed = map(voltage, voltLowBnd, voltUpBnd, fanSpdLowBnd, fanSpdUpBnd); //Translation using map function
-  return fanSpeed;                              //Send back new speed
+  int speedConversion = map(voltage, voltLowBnd, voltUpBnd, fanSpdLowBnd, fanSpdUpBnd); //Translation using map function
+  return speedConversion;                              //Send back new speed
 }
 
 //Function that changes the speed of the fans using PWM at 25KHz
