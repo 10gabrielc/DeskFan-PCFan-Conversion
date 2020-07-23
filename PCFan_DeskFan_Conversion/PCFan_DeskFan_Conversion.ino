@@ -16,6 +16,8 @@ const byte fanPin = 3;
 const byte btnLeftPin = 4;
 const byte btnRightPin = 5;
 const byte speedKnobPin = A0;
+const int voltLowBnd = 0;
+const int voltUpBnd = 1023;
 
 //Variables for FastLED library
 #define NUM_LEDS 5
@@ -32,13 +34,16 @@ CRGB fanLEDs[NUM_LEDS];         //Container for addressing LED strip
 const int stepsPerRevolution = 2038;    //Steps for a 28BYJ-48 stepper motor
 int stepperPosition = 0;                //Relative position of the motor shaft
 int stepperSpeed = 6;                   //Speed at which consecutive steps happen
+bool isOscillating = false;
 
 Stepper oscillatorMotor(stepsPerRevolution, stepIn1, stepIn2, stepIn3, stepIn4);
 // ^Initialize stepper motor
 
 //Variables needed for fan speed control
 const int32_t pwmFrequency = 25000;     //Frequency of the pin in Hz
-byte fanSpeed = 75;                     //Fan speed as a percentage (0-255);
+int fanSpeed = 75;                     //Fan speed as a percentage (0-255);
+const int fanSpdLowBnd = 30;
+const int fanSpdUpBnd = 255;
 
 
 void setup() 
@@ -52,7 +57,7 @@ void setup()
   pinMode(speedKnobPin, INPUT);
 
   //Initialize fastLED library on our container
-  FastLED.addLeds<WS2812B, DATA_PIN>(fanLEDs, NUM_LEDS);
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(fanLEDs, NUM_LEDS);
   FastLED.clear();                                        //Turn off any lingering lights
   
   //Begin adjusting the PWM frequency
@@ -66,10 +71,43 @@ void setup()
 
   //Set default stepper rotation speed
   oscillatorMotor.setSpeed(stepperSpeed);
-  
+
+  UpdateFanSpeed();
 }
 
 void loop() 
+{
+  
+}
+
+//Function that runs at startup. Fans need high initial speed percentage
+void FirstStartup()
+{
+  //Set fan speed to high speed to kick start them
+  pwmWrite(fanPin, 200);
+  delay(1500);
+
+  //Get the speed that is set by the potentiometer knob
+  UpdateFanSpeed();
+}
+
+//Function that reads analog voltage, converts to value from 0-255
+int CalculateFanSpeed()
+{
+  int voltage = analogRead(speedKnobPin);       //Analog read checks voltage level on A0
+  int fanSpeed = map(voltage, voltLowBnd, voltUpBnd, fanSpdLowBnd, fanSpdUpBnd); //Translation using map function
+  return fanSpeed;                              //Send back new speed
+}
+
+//Function that changes the speed of the fans using PWM at 25KHz
+void UpdateFanSpeed()
+{
+  fanSpeed = CalculateFanSpeed();   //Update global fan speed variable
+  pwmWrite(fanPin, fanSpeed);       //Update fan speed
+}
+
+//Function that changes the color of the LEDs (static)
+void setLEDcolors()
 {
   
 }
