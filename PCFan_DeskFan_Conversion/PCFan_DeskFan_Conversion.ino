@@ -42,7 +42,7 @@ Stepper oscillatorMotor(stepsPerRevolution, stepIn1, stepIn2, stepIn3, stepIn4);
 //Variables needed for fan speed control
 const int32_t pwmFrequency = 25000;     //Frequency of the pin in Hz
 int fanSpeed = 75;                     //Fan speed as a percentage (0-255);
-const int fanSpdLowBnd = 30;
+const int fanSpdLowBnd = 50;
 const int fanSpdUpBnd = 255;
 
 //Variables needed for millis() timing
@@ -117,6 +117,7 @@ void UpdateFanSpeed()
 {
   fanSpeed = CalculateFanSpeed();   //Update global fan speed variable
   pwmWrite(fanPin, fanSpeed);       //Update fan speed
+  Serial.println(fanSpeed);
 }
 
 //Function that changes the color of the LEDs (static)
