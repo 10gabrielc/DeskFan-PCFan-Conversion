@@ -1,12 +1,12 @@
 //Include libraries
 #include <PWM.h>              //Changes PWM frequencies on certain pins
-#include <Stepper.h>          //Lets you control stepper motors!
-#include <FastLED.h>          //Lets you communicate with I.A. LEDs
+#include <Stepper.h>          //Lets you control stepper motors
+//#include <FastLED.h>          //Lets you communicate with I.A. LEDs
 
 //Pins for stepper motor connection
 const byte stepIn1 = 8;               //Pins on included stepper module
-const byte stepIn2 = 10;
-const byte stepIn3 = 9;
+const byte stepIn2 = 9;
+const byte stepIn3 = 10;
 const byte stepIn4 = 11;
 
 //Pins for Fan PWM signals
@@ -21,20 +21,20 @@ const int voltLowBnd = 0;
 const int voltUpBnd = 1023;
 
 //Variables for FastLED library
-#define NUM_LEDS 5
-#define DATA_PIN 7
-#define MAX_BRIGHTNESS 255
+//#define NUM_LEDS 5
+//#define DATA_PIN 7
+//#define MAX_BRIGHTNESS 255
 
-byte hue = 0;                   //Global hue for LEDs
-byte sat = 255;                 //Global saturation for LEDs
-byte val = MAX_BRIGHTNESS;      //Global brightness for LEDs
+//byte hue = 0;                   //Global hue for LEDs
+//byte sat = 255;                 //Global saturation for LEDs
+//byte val = MAX_BRIGHTNESS;      //Global brightness for LEDs
 
-CRGB fanLEDs[NUM_LEDS];         //Container for addressing LED strip
+//CRGB fanLEDs[NUM_LEDS];         //Container for addressing LED strip
 
 //Variables for stepper motor usage
 const int stepsPerRevolution = 2038;    //Steps for a 28BYJ-48 stepper motor
-int stepperPosition = 0;                //Relative position of the motor shaft
-int stepperSpeed = 6;                   //Speed at which consecutive steps happen
+int stepperPosition = (stepsPerRevolution/4)/2;       //Relative position of the motor shaft
+int stepperSpeed = 2;                   //Speed at which consecutive steps happen
 bool isOscillating = false;             //Variable to determine if fan should oscillate
 int stepsPerLoop = 5;
 
@@ -49,31 +49,36 @@ const int fanSpdUpBnd = 255;
 
 //Variables needed for millis() timing, values in milliseconds
 double currentTime = 0;                       //Current system run time
-double changeSpeedLast = 0;             //Last time the change speed function ran
+double changeSpeedLast = 0;                   //Last time the change speed function ran
 const double changeSpeedDelay = 200;          //Delay to wait between changing speed
-
 double oscillateToggleLast = 0;               //Last time oscillation toggle was checked
-const double oscillateToggleDelay = 100;      //Delay to wait between checking toggle
+const double oscillateToggleDelay = 500;      //Delay to wait between checking toggle
 double oscillateLast = 0;                     //Last time fan oscillated
-const double oscillateDelay = 10;              //Delay between stepper motor oscillations
+const double oscillateDelay = 50;             //Delay between stepper motor oscillations
 
 //Variables needed for button status/debouncing
 bool btnOscillatePressed = false;
 bool btnOscLast = false;
+bool btnTurnLeftPressed = false;
+bool btnLeftLast = false;
+bool btnTurnRightPressed = false;
+bool btnRightLast = false;
 
 void setup() 
 {
   //Initialize Serial Monitor
-  Serial.begin(9600);
+  //Serial.begin(9600);
   
   //Initialize button/knob pins
   pinMode(btnLeftPin, INPUT_PULLUP);
   pinMode(btnRightPin, INPUT_PULLUP);
+  pinMode(btnOscillatePin, INPUT_PULLUP);
   pinMode(speedKnobPin, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   //Initialize fastLED library on our container
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(fanLEDs, NUM_LEDS);
-  FastLED.clear();                                        //Turn off any lingering lights
+  //FastLED.addLeds<WS2812B, DATA_PIN, GRB>(fanLEDs, NUM_LEDS);
+  //FastLED.clear();                                        //Turn off any lingering lights
   
   //Begin adjusting the PWM frequency
   InitTimersSafe();
@@ -81,13 +86,21 @@ void setup()
   bool success = SetPinFrequencySafe(fanPin, pwmFrequency);   //Check if successful PWM change
   if(success)
   {
-    Serial.println("Changing of PWM frequency successful.");
+    //If PWM update successful, blink the onboard UNO LED multiple times
+    for(int i = 0; i <4; i++)
+    {
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(250);
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(250);
+    }
   }
 
   //Set default stepper rotation speed
   oscillatorMotor.setSpeed(stepperSpeed);
 
-  UpdateFanSpeed();
+  //Run function for initial fan startup
+  FirstStartup();
 }
 
 void loop() 
@@ -111,13 +124,12 @@ void loop()
     if(btnOscillatePressed == 0 && btnOscLast == 0)
     {
       isOscillating = !isOscillating;
-      //btnOscLast = 1;               //excluding debounce for now
     }
 
     oscillateToggleLast = millis();
   }
 
-  if((currentTime - oscillateLast) >= oscillateDelay)
+  if((isOscillating == true) && ((currentTime - oscillateLast) >= oscillateDelay))
   {
     Oscillate();
     oscillateLast = millis();
@@ -152,23 +164,18 @@ void UpdateFanSpeed()
 {
   fanSpeed = CalculateFanSpeed();   //Update global fan speed variable
   pwmWrite(fanPin, fanSpeed);       //Update fan speed
-  Serial.println(fanSpeed);
 }
 
 //Function for oscillating the fan head
 void Oscillate()
 {
   //Check if fan has reached an oscillatory bound
-  if(stepperPosition <= 0 || stepperPosition >= (stepsPerRevolution/2))
+  if((stepperPosition < 0) || (stepperPosition > (stepsPerRevolution/4)))
   {
     stepsPerLoop = -stepsPerLoop; //Invert the direction of rotation
+    delay(1000);
   }
-
+  stepperPosition += stepsPerLoop;
   oscillatorMotor.step(stepsPerLoop);
-}
-
-//Function that changes the color of the LEDs (static)
-void setLEDcolors()
-{
-  
+  delay(1);
 }
