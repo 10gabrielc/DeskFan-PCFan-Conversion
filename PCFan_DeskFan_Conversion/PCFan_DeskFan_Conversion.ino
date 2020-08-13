@@ -1,40 +1,33 @@
 //Included libraries
-#include <PWM.h>              //Changes PWM frequencies on certain pins
-#include <DHT.h>              //Lets you utilize DHT11 temp sensor
+#include <PWM.h>                //Changes PWM frequencies on certain pins
+#include <DHT.h>                //Lets you utilize DHT11 temp sensor
 
-//Pins for Fan PWM signals
-const byte fanPin = 3;
-
-//Pins for buttons or knobs
-const byte speedKnobPin = A0;
-const int voltLowBnd = 0;
-const int voltUpBnd = 1017;
+//Pins used on the Arduino UNO
+const byte fanPin = 3;            //Pin for PC Fan PWM connection
+const byte speedKnobPin = A0;     //Variable voltage pin on potentiometer
 
 //Variables needed for fan speed control
 const int32_t pwmFrequency = 25000;     //Frequency of the pin in Hz
 int fanSpeed = 75;                      //Fan speed as a percentage (0-255);
-const int fanSpdLowBnd = 50;
-const int fanSpdUpBnd = 255;
+const int fanSpdLowBnd = 50;            //Minimum PWM fan speed
+const int fanSpdUpBnd = 255;            //Maximum PWM fan speed
+const int voltLowBnd = 0;               //Minimum voltage reading value
+const int voltUpBnd = 1017;             //Maximum voltage reading value
+
 
 //Variables needed for millis() timing, values in milliseconds
-double currentTime = 0;                       //Current system run time
 double changeSpeedLast = 0;                   //Last time the change speed function ran
 const double changeSpeedDelay = 200;          //Delay to wait between changing speed
 const double tempUpdateDelay = 4000;          //Delay between temp reads
 double tempUpdateLast = 0;                    //Last time temperature was read
 
-//Variables needed for button status/debouncing
-
 //Variables needed for DHT library usage
-#define DHTPIN 2        //Data pin for DHT sensor
-#define DHTTYPE DHT11   //Type of DHT Sensor used
-DHT tempSensor(DHTPIN, DHTTYPE);
+#define DHTPIN 2                        //Data pin for DHT sensor
+#define DHTTYPE DHT11                   //Type of DHT Sensor used
+DHT tempSensor(DHTPIN, DHTTYPE);        //Create DHT11 sensor object
 
 void setup() 
 {
-  //Initialize Serial Monitor
-  Serial.begin(9600);
-  
   //Initialize button/knob pins
   pinMode(speedKnobPin, INPUT);
   pinMode(LED_BUILTIN, OUTPUT);
@@ -63,7 +56,7 @@ void setup()
 
 void loop() 
 {
-  currentTime = millis();     //Update current system time
+  double currentTime = millis();     //Store current system time in double variable
 
   //Check for speed changes after delay period
   if((currentTime - changeSpeedLast) >= changeSpeedDelay)
@@ -71,66 +64,6 @@ void loop()
     //Check current speed setting on knob and update fan speed accordingly
     UpdateFanSpeed();
     changeSpeedLast = millis();
-  }
-
-  if((currentTime - oscillateToggleLast) >= oscillateToggleDelay)
-  {
-    //Check to see if the button to turn on oscillation is pressed
-    btnOscillatePressed = digitalRead(btnOscillatePin);       //Get button status
-
-    //Check for button press, but utilize debounce
-    if(btnOscillatePressed == 0 && btnOscLast == 0)
-    {
-      isOscillating = !isOscillating;
-      btnOscLast = 1;
-      if(isOscillating == true)
-      {
-        stepCoolLast = currentTime;
-      }
-      else
-      {
-        StepperPowerDown();
-      }
-    }
-
-    oscillateToggleLast = millis();
-  }
-
-  if((isOscillating == true) && (currentTime - stepCoolLast) >= stepCoolDelay)
-  {
-    //Stop the stepper motor from running after 10 minutes of running
-    //Gives it time to cool down (before melting attached hot glue!)
-    isOscillating = false;
-    StepperPowerDown();
-  }
-  
-  if(btnOscLast == 1)     //Debounce oscillation toggle button
-  {
-    if(digitalRead(btnOscillatePin) == HIGH)
-    {
-      btnOscLast = 0;
-      delay(25);
-    }
-  }
-
-  if((isOscillating == true) && ((currentTime - oscillateLast) >= oscillateDelay))
-  {
-    Oscillate();
-    oscillateLast = millis();
-  }
-
-  if((currentTime - turnLRLast) >= turnLRDelay)
-  {
-    //Turn the fan head left or right if buttons are pressed
-    if(digitalRead(btnLeftPin) == LOW)
-    {
-      TurnLeft();
-    }
-    else if(digitalRead(btnRightPin) == LOW)
-    {
-      TurnRight();
-    }
-    turnLRLast = currentTime;
   }
 
   if((currentTime - tempUpdateLast) >= tempUpdateDelay)
@@ -156,9 +89,8 @@ void FirstStartup()
 int CalculateFanSpeed()
 {
   int voltage = analogRead(speedKnobPin);       //Analog read checks voltage level on A0
-  //Serial.println(voltage);
   int speedConversion = map(voltage, voltLowBnd, voltUpBnd, fanSpdLowBnd, fanSpdUpBnd); //Translation using map function
-  return speedConversion;                              //Send back new speed
+  return speedConversion;                       //Send back new speed
 }
 
 //Function that changes the speed of the fans using PWM at 25KHz
